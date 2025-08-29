@@ -29,5 +29,7 @@ private:
     QByteArray fileContents;
     Inspector inspector;
     QPalette mainPalette;
+    int windowHPadding;
+    int windowVPadding;
 };
 #endif // MAINWINDOW_H

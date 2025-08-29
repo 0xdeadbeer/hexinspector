@@ -39,22 +39,29 @@ class Inspector : public QAbstractScrollArea
 public:
     explicit Inspector(QWidget *parent = nullptr);
     void paintEvent(QPaintEvent *event);
+    QSize GetGridDimensions();
 
 private:
     void drawColumn(QPainter *painter, QRect rect);
     void drawRow(QPainter *painter, QRect rect);
     void drawCell(QPainter *painter, QString contents, QPoint point);
+    void drawCell(QPainter *painter, QString contents, QPoint point, QString color);
     void drawSelectedCell(QPainter *painter, QString contents, QPoint point);
     void scroll(int direction);
 
 public slots:
+    void DisplayWelcomeScreen();
     void ContentsUpdated(QByteArray newContents);
     void CursorMoveRight();
     void CursorMoveLeft();
     void CursorMoveDown();
     void CursorMoveUp();
 
+signals:
+    void SignalWelcomeScreen();
+
 private:
+    bool active;
     QByteArray fileContents;
     InspectorGrid grid;
 

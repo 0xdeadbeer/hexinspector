@@ -7,29 +7,45 @@
 #include <QtGlobal>
 #include <QPoint>
 #include <QFont>
+#include "colors.h"
 
 Inspector::Inspector(QWidget *parent)
     : QAbstractScrollArea{parent}
     , grid(16, 12, 30, 16*2, QFont("Hack Nerd Font Mono", 12))
+    , active(false)
 {
     viewport()->update();
+
 
     QObject::connect(new QShortcut(QKeySequence("l"), this), SIGNAL(activated()), this, SLOT(CursorMoveRight()));
     QObject::connect(new QShortcut(QKeySequence("h"), this), SIGNAL(activated()), this, SLOT(CursorMoveLeft()));
     QObject::connect(new QShortcut(QKeySequence("j"), this), SIGNAL(activated()), this, SLOT(CursorMoveDown()));
     QObject::connect(new QShortcut(QKeySequence("k"), this), SIGNAL(activated()), this, SLOT(CursorMoveUp()));
+    QObject::connect(this, SIGNAL(SignalWelcomeScreen()), this, SLOT(DisplayWelcomeScreen()));
 }
 
-void Inspector::ContentsUpdated(QByteArray buff) {
-    fileContents = buff;
-    viewport()->repaint();
-}
-
-void Inspector::paintEvent(QPaintEvent *event) {
+void Inspector::DisplayWelcomeScreen() {
     QPainter painter(viewport());
 
     painter.setFont(grid.FontFamily);
-    painter.fillRect(event->rect(), viewport()->palette().color(QPalette::Mid));
+    drawCell(&painter, "Welcome to hexinspector!", QPoint(50, 50));
+    drawCell(&painter, "This is a pet project", QPoint(50, 75));
+    drawCell(&painter, "written by @0xdeadbeer", QPoint(50, 100));
+}
+
+
+void Inspector::paintEvent(QPaintEvent *event) {
+    QPainter painter(viewport());
+    painter.fillRect(event->rect(), ColorMap.at("INSPECTOR::BACKGROUND"));
+    if (!this->fileContents.length()) {
+        active = false;
+        emit SignalWelcomeScreen();
+        return;
+    }
+
+    active = true;
+
+    painter.setFont(grid.FontFamily);
 
     QString strData = this->fileContents.toUpper().toHex(' ');
     QStringList hexCodes = strData.split(" ", Qt::SkipEmptyParts);
@@ -44,12 +60,12 @@ void Inspector::paintEvent(QPaintEvent *event) {
     QRect cursorColumnRect(cursorColumn*grid.HSpacing+grid.Margin-hpadding,
                            0,
                            grid.FontMetrics.tightBoundingRect("AA").width()+2*hpadding,
-                           grid.Margin+grid.Rows*(grid.VSpacing));
+                           this->GetGridDimensions().height());
     drawColumn(&painter, cursorColumnRect);
 
     QRect cursorRowRect(0,
                         (cursorRow*grid.VSpacing)-grid.FontMetrics.tightBoundingRect("AA").height()+grid.Margin-vpadding,
-                        grid.Margin+grid.Columns*grid.HSpacing,
+                        this->GetGridDimensions().width(),
                         grid.FontMetrics.tightBoundingRect("AA").height()+2*vpadding);
     drawRow(&painter, cursorRowRect);
 
@@ -73,15 +89,30 @@ void Inspector::paintEvent(QPaintEvent *event) {
     }
 }
 
+QSize Inspector::GetGridDimensions() {
+    return QSize(2*grid.Margin+grid.Columns*grid.HSpacing, 2+grid.Margin+grid.Rows*grid.VSpacing);
+}
+
+void Inspector::ContentsUpdated(QByteArray buff) {
+    fileContents = buff;
+    viewport()->repaint();
+}
+
 void Inspector::drawColumn(QPainter *painter, QRect rect) {
-    painter->fillRect(rect, QColor(0xaa, 0xaa, 0xaa, 0xaa));
+    painter->fillRect(rect, ColorMap.at("INSPECTOR::BACKGROUND::COLUMN::ACTIVE"));
 }
 
 void Inspector::drawRow(QPainter *painter, QRect rect) {
-    painter->fillRect(rect, QColor(0xaa, 0xaa, 0xaa, 0xaa));
+    painter->fillRect(rect, ColorMap.at("INSPECTOR::BACKGROUND::ROW::ACTIVE"));
 }
 
 void Inspector::drawCell(QPainter *painter, QString contents, QPoint point) {
+    painter->setPen("INSPECTOR::FOREGROUND");
+    painter->drawText(point, contents);
+}
+
+void Inspector::drawCell(QPainter *painter, QString contents, QPoint point, QString fgColor) {
+    painter->setPen(ColorMap.at(fgColor.toStdString()));
     painter->drawText(point, contents);
 }
 
@@ -96,13 +127,10 @@ void Inspector::drawSelectedCell(QPainter *painter, QString contents, QPoint poi
         point.setX(point.x()+boundingBox.width());
     }
 
-    painter->fillRect(rectPoint.x(), rectPoint.y()-boundingBox.height()-4*padding, boundingBox.width(), boundingBox.height()+8*padding, palette().color(QPalette::HighlightedText));
+    painter->fillRect(rectPoint.x(), rectPoint.y()-boundingBox.height()-4*padding, boundingBox.width(), boundingBox.height()+8*padding, ColorMap.at("INSPECTOR::BACKGROUND::CELL::ACTIVE::HALFBYTE"));
 
-    painter->setPen(Qt::white);
-    drawCell(painter, contents.at(grid.OffsetCursor), rectPoint);
-
-    painter->setPen(Qt::black);
-    drawCell(painter, contents.at(grid.OffsetCursor ? 0 : 1), point);
+    drawCell(painter, contents.at(grid.OffsetCursor), rectPoint, "INSPECTOR::FOREGROUND::CELL::ACTIVE::HALFBYTE");
+    drawCell(painter, contents.at(grid.OffsetCursor ? 0 : 1), point, "INSPECTOR::FOREGROUND::CELL::ACTIVE");
 }
 
 void Inspector::scroll(int direction) {
@@ -116,6 +144,10 @@ void Inspector::scroll(int direction) {
 }
 
 void Inspector::CursorMoveRight() {
+    if (!this->active) {
+        return;
+    }
+
     this->grid.OffsetCursor = (this->grid.OffsetCursor + 1) % 2;
     if (this->grid.OffsetCursor % 2 == 0) {
         this->grid.IndexCursor = qBound(0, this->grid.IndexCursor+1, fileContents.length()-1);
@@ -124,6 +156,10 @@ void Inspector::CursorMoveRight() {
 }
 
 void Inspector::CursorMoveLeft() {
+    if (!this->active) {
+        return;
+    }
+
     this->grid.OffsetCursor = (this->grid.OffsetCursor + 1) % 2;
     if (this->grid.OffsetCursor % 2 != 0) {
         this->grid.IndexCursor = qBound(0, this->grid.IndexCursor-1, fileContents.length()-1);
@@ -132,11 +168,19 @@ void Inspector::CursorMoveLeft() {
 }
 
 void Inspector::CursorMoveDown() {
+    if (!this->active) {
+        return;
+    }
+
     this->grid.IndexCursor = qBound(0, this->grid.IndexCursor+grid.Columns, fileContents.length()-1);
     viewport()->update();
 }
 
 void Inspector::CursorMoveUp() {
+    if (!this->active) {
+        return;
+    }
+
     this->grid.IndexCursor = qBound(0, this->grid.IndexCursor-grid.Columns, fileContents.length()-1);
     viewport()->update();
 }
