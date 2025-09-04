@@ -12,7 +12,7 @@ static std::unordered_map<std::string, QColor> ColorMap = {
     { "INSPECTOR::BACKGROUND::ROW::ACTIVE", QColor(150, 150, 150, 255) },
     { "INSPECTOR::FOREGROUND::CELL", QColor(255, 255, 255, 255) },
     { "INSPECTOR::FOREGROUND::CELL::ACTIVE", QColor(0, 0, 0, 255) },
-    { "INSPECTOR::BACKGROUND::CELL::ACTIVE::HALFBYTE", QColor(0, 255, 0, 255) },
+    { "INSPECTOR::BACKGROUND::CELL::ACTIVE::HALFBYTE", QColor(60, 60, 60, 255) },
     { "INSPECTOR::FOREGROUND::CELL::ACTIVE::HALFBYTE", QColor(255, 255, 255, 255) }
 };
 

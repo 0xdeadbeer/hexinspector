@@ -7,6 +7,10 @@
 #include <QPainter>
 #include <QAbstractScrollArea>
 
+#define INSPECTOR_MODE_NORMAL 0b00000001
+#define INSPECTOR_MODE_INSERT 0b00000010
+#define INSPECTOR_MODE_VISUAL 0b00000100
+
 struct InspectorGrid {
     InspectorGrid(int columns, int rows, int vSpacing, int hSpacing, QFont fontFamily)
         : Columns(columns)
@@ -39,6 +43,11 @@ class Inspector : public QAbstractScrollArea
 public:
     explicit Inspector(QWidget *parent = nullptr);
     void paintEvent(QPaintEvent *event);
+    void keyPressEvent(QKeyEvent *event);
+    void handleDefaultEvent(int key);
+    void handleNormalEvent(int key);
+    void handleInsertEvent(int key);
+    void handleVisualEvent(int key);
     QSize GetGridDimensions();
 
 private:
@@ -64,6 +73,8 @@ private:
     bool active;
     QByteArray fileContents;
     InspectorGrid grid;
+
+    int mode;
 
 signals:
 

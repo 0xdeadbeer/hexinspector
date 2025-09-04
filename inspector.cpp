@@ -7,20 +7,17 @@
 #include <QtGlobal>
 #include <QPoint>
 #include <QFont>
+#include <iostream>
 #include "colors.h"
 
 Inspector::Inspector(QWidget *parent)
     : QAbstractScrollArea{parent}
     , grid(16, 12, 30, 16*2, QFont("Hack Nerd Font Mono", 12))
     , active(false)
+    , mode(INSPECTOR_MODE_NORMAL)
 {
     viewport()->update();
 
-
-    QObject::connect(new QShortcut(QKeySequence("l"), this), SIGNAL(activated()), this, SLOT(CursorMoveRight()));
-    QObject::connect(new QShortcut(QKeySequence("h"), this), SIGNAL(activated()), this, SLOT(CursorMoveLeft()));
-    QObject::connect(new QShortcut(QKeySequence("j"), this), SIGNAL(activated()), this, SLOT(CursorMoveDown()));
-    QObject::connect(new QShortcut(QKeySequence("k"), this), SIGNAL(activated()), this, SLOT(CursorMoveUp()));
     QObject::connect(this, SIGNAL(SignalWelcomeScreen()), this, SLOT(DisplayWelcomeScreen()));
 }
 
@@ -47,7 +44,7 @@ void Inspector::paintEvent(QPaintEvent *event) {
 
     painter.setFont(grid.FontFamily);
 
-    QString strData = this->fileContents.toUpper().toHex(' ');
+    QString strData = this->fileContents.toHex(' ');
     QStringList hexCodes = strData.split(" ", Qt::SkipEmptyParts);
 
     int totalRows = hexCodes.length()/grid.Columns;
@@ -86,6 +83,123 @@ void Inspector::paintEvent(QPaintEvent *event) {
 
             drawCell(&painter, cellContents, point);
         }
+    }    
+}
+
+void Inspector::handleDefaultEvent(int key) {
+    if (key == Qt::Key_Escape) {
+        this->mode = INSPECTOR_MODE_NORMAL;
+        return;
+    }
+
+    if (key == Qt::Key_Space) {
+        this->fileContents.insert(grid.IndexCursor, (char) 0x00);
+        viewport()->update();
+        return;
+    }
+
+    if (key == Qt::Key_Backspace) {
+        this->CursorMoveLeft();
+        return;
+    }
+
+    if (this->mode == INSPECTOR_MODE_INSERT) {
+        return;
+    }
+
+    if (this->mode == INSPECTOR_MODE_VISUAL) {
+        return;
+    }
+
+    if (key == Qt::Key_I) {
+        this->mode = INSPECTOR_MODE_INSERT;
+    }
+
+    if (key == Qt::Key_V) {
+        this->mode = INSPECTOR_MODE_VISUAL;
+        return;
+    }
+}
+
+void Inspector::handleNormalEvent(int key) {
+    switch (key) {
+    case Qt::Key_H:
+        this->CursorMoveLeft();
+        break;
+    case Qt::Key_J:
+        this->CursorMoveDown();
+        break;
+    case Qt::Key_K:
+        this->CursorMoveUp();
+        break;
+    case Qt::Key_L:
+        this->CursorMoveRight();
+        break;
+    case Qt::Key_X:
+        this->fileContents.remove(grid.IndexCursor, 1);
+        viewport()->update();
+        break;
+    case Qt::Key_Space:
+        break;
+    }
+}
+
+void Inspector::handleInsertEvent(int key) {
+    bool isNumber = key >= Qt::Key_0 && key <= Qt::Key_9;
+    bool isChar = key >= Qt::Key_A && key <= Qt::Key_F;
+    bool isNotHexDigit = !isNumber && !isChar;
+    if (isNotHexDigit) {
+        return;
+    }
+
+    char value = 0;
+    if (isNumber) {
+        value = key - Qt::Key_0;
+    }
+    if (isChar) {
+        value = 0xA + (key - Qt::Key_A);
+    }
+
+    char halfByteValue = this->fileContents.at(grid.IndexCursor);
+    int writeByte = 1-grid.OffsetCursor;
+    int readByte = 1-writeByte;
+    int newValue = 0;
+
+    newValue |= halfByteValue & (0b1111 << (readByte * 4)) ;
+    newValue |= (value & 0b1111) << (writeByte * 4);
+
+    this->fileContents[grid.IndexCursor] = newValue;
+
+    viewport()->repaint();
+
+    this->CursorMoveRight();
+}
+
+void Inspector::handleVisualEvent(int key) {
+    switch (key) {
+    default:
+        break;
+    }
+}
+
+void Inspector::keyPressEvent(QKeyEvent *event) {
+    if (!this->active) {
+        return;
+    }
+
+    int key = event->key();
+    this->handleDefaultEvent(key);
+
+    switch (this->mode) {
+    case INSPECTOR_MODE_NORMAL:
+        this->handleNormalEvent(key);
+        break;
+    case INSPECTOR_MODE_INSERT:
+        this->handleInsertEvent(key);
+        break;
+    case INSPECTOR_MODE_VISUAL:
+        this->handleVisualEvent(key);
+        break;
     }
 }
 
@@ -144,10 +258,6 @@ void Inspector::scroll(int direction) {
 }
 
 void Inspector::CursorMoveRight() {
-    if (!this->active) {
-        return;
-    }
-
     this->grid.OffsetCursor = (this->grid.OffsetCursor + 1) % 2;
     if (this->grid.OffsetCursor % 2 == 0) {
         this->grid.IndexCursor = qBound(0, this->grid.IndexCursor+1, fileContents.length()-1);
@@ -156,10 +266,6 @@ void Inspector::CursorMoveRight() {
 }
 
 void Inspector::CursorMoveLeft() {
-    if (!this->active) {
-        return;
-    }
-
     this->grid.OffsetCursor = (this->grid.OffsetCursor + 1) % 2;
     if (this->grid.OffsetCursor % 2 != 0) {
         this->grid.IndexCursor = qBound(0, this->grid.IndexCursor-1, fileContents.length()-1);
@@ -168,19 +274,11 @@ void Inspector::CursorMoveLeft() {
 }
 
 void Inspector::CursorMoveDown() {
-    if (!this->active) {
-        return;
-    }
-
     this->grid.IndexCursor = qBound(0, this->grid.IndexCursor+grid.Columns, fileContents.length()-1);
     viewport()->update();
 }
 
 void Inspector::CursorMoveUp() {
-    if (!this->active) {
-        return;
-    }
-
     this->grid.IndexCursor = qBound(0, this->grid.IndexCursor-grid.Columns, fileContents.length()-1);
     viewport()->update();
 }
