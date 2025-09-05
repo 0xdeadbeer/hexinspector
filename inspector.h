@@ -6,10 +6,26 @@
 #include <QByteArray>
 #include <QPainter>
 #include <QAbstractScrollArea>
+#include "colors.h"
 
-#define INSPECTOR_MODE_NORMAL 0b00000001
-#define INSPECTOR_MODE_INSERT 0b00000010
-#define INSPECTOR_MODE_VISUAL 0b00000100
+enum InspectorMode {
+    Normal = 0x00,
+    Insert,
+    Visual,
+    Count
+};
+
+static std::unordered_map<InspectorMode, QColor> ModeColorMap = {
+    { InspectorMode::Normal, ColorMap.at("INSPECTOR::BACKGROUND::MODE::NORMAL") },
+    { InspectorMode::Insert, ColorMap.at("INSPECTOR::BACKGROUND::MODE::INSERT") },
+    { InspectorMode::Visual, ColorMap.at("INSPECTOR::BACKGROUND::MODE::VISUAL") },
+};
+
+static std::unordered_map<InspectorMode, QString> ModeStringColorMap = {
+    { InspectorMode::Normal, "NORMAL MODE" },
+    { InspectorMode::Insert, "INSERT MODE" },
+    { InspectorMode::Visual, "VISUAL MODE" }
+};
 
 struct InspectorGrid {
     InspectorGrid(int columns, int rows, int vSpacing, int hSpacing, QFont fontFamily)
@@ -74,7 +90,7 @@ private:
     QByteArray fileContents;
     InspectorGrid grid;
 
-    int mode;
+    InspectorMode mode;
 
 signals:
 

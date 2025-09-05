@@ -30,7 +30,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->centralwidget->layout()->addWidget(&this->inspector);
 
     QSize gridDimensions = this->inspector.GetGridDimensions();
-    setFixedSize(gridDimensions.width()+2*windowHPadding, gridDimensions.height()+2*windowVPadding);
+    setFixedSize(gridDimensions.width()+2*windowHPadding, gridDimensions.height()+10+2*windowVPadding);
 }
 
 MainWindow::~MainWindow()

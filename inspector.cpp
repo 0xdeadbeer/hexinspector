@@ -14,7 +14,7 @@ Inspector::Inspector(QWidget *parent)
     : QAbstractScrollArea{parent}
     , grid(16, 12, 30, 16*2, QFont("Hack Nerd Font Mono", 12))
     , active(false)
-    , mode(INSPECTOR_MODE_NORMAL)
+    , mode(InspectorMode::Normal)
 {
     viewport()->update();
 
@@ -83,12 +83,15 @@ void Inspector::paintEvent(QPaintEvent *event) {
 
             drawCell(&painter, cellContents, point);
         }
-    }    
+    }
+
+    painter.fillRect(QRect(0, viewport()->height()-20, viewport()->width(), 20), ModeColorMap.at(this->mode));
+    painter.drawText(QPoint(5, viewport()->height()-5), ModeStringColorMap.at(this->mode));
 }
 
 void Inspector::handleDefaultEvent(int key) {
     if (key == Qt::Key_Escape) {
-        this->mode = INSPECTOR_MODE_NORMAL;
+        this->mode = InspectorMode::Normal;
         return;
     }
 
@@ -103,20 +106,21 @@ void Inspector::handleDefaultEvent(int key) {
         return;
     }
 
-    if (this->mode == INSPECTOR_MODE_INSERT) {
+    if (this->mode == InspectorMode::Insert) {
         return;
     }
 
-    if (this->mode == INSPECTOR_MODE_VISUAL) {
+    if (this->mode == InspectorMode::Visual) {
         return;
     }
 
     if (key == Qt::Key_I) {
-        this->mode = INSPECTOR_MODE_INSERT;
+        this->mode = InspectorMode::Insert;
+        return;
     }
 
     if (key == Qt::Key_V) {
-        this->mode = INSPECTOR_MODE_VISUAL;
+        this->mode = InspectorMode::Visual;
         return;
     }
 }
@@ -191,16 +195,18 @@ void Inspector::keyPressEvent(QKeyEvent *event) {
     this->handleDefaultEvent(key);
 
     switch (this->mode) {
-    case INSPECTOR_MODE_NORMAL:
+    case InspectorMode::Normal:
         this->handleNormalEvent(key);
         break;
-    case INSPECTOR_MODE_INSERT:
+    case InspectorMode::Insert:
         this->handleInsertEvent(key);
         break;
-    case INSPECTOR_MODE_VISUAL:
+    case InspectorMode::Visual:
         this->handleVisualEvent(key);
         break;
     }
+
+    viewport()->repaint();
 }
 
 QSize Inspector::GetGridDimensions() {
